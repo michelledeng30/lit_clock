@@ -4,7 +4,6 @@ import csv
 import pandas as pd
 import re
 
-
 # helper function to get info from main book page
 # input: URL for the book page in gemibooks.com
 # output: book title, book author, number of chapters/pages, url to 1st page
@@ -15,25 +14,25 @@ def get_book_info(URL):
         f.write(contents)
     doc = BeautifulSoup(contents, 'html.parser')
 
-    title_tag = doc.find('h3', class_='title')
+    title_tag = doc.find('a', class_='sn-link-color sn-list-header-h1')
     title = title_tag.text
 
-    author_tag = doc.find('a', itemprop='author')
-    author = author_tag.text
+    author_tag = doc.find('h5', class_=None)
+    author_tag_next = author_tag.find('a')
+    author = author_tag_next.text
 
-    all_ul = doc.find_all('ul', class_='list-chapter')
-    page_urls = []
-    for ul in all_ul:
-        page_tags = ul.find_all('li')
-        for page_tag in page_tags:
-            page_link = page_tag.find('a', href=True)
-            page_url = 'https://gemibook.com' + page_link['href']
-            page_urls.append(page_url)
+    list_all = doc.find_all('div', class_='card-body row')
     
+    page_urls = []
+    for sub_list in list_all:
+        page_tags = sub_list.find_all('a', href=True)
+        for page_tag in page_tags:
+            page_url = 'https://www.allfreenovel.com/' + page_tag['href']
+            page_urls.append(page_url)
+
     return title, author, page_urls
 
-get_book_info('https://gemibook.com/231064-the-hobbit')
-get_book_info('https://gemibook.com/2435427-the-martian')
+get_book_info('https://www.allfreenovel.com/Book/Details/16395/The-Invisible-Life-of-Addie-LaRue')
 
 # helper function that gets the page from url
 # input: page url
@@ -135,12 +134,11 @@ def scrape_book(URL):
         if doc == None:
             print('error retrieving website', title, i, page_url)
             continue
-        content = doc.find('div', class_='chapter-content')
-        if content == None:
-            print('no content', title, i, page_url)
+        contents = doc.find_all('p', class_='storyText')
+        if contents == None:
+            print('no contents', title, i, page_url)
             continue
-        texts = content.find_all('p')
-        for text in texts:
+        for text in contents:
             text_str = text.text
             matches = find_times(text_str)
             if matches:
@@ -164,25 +162,26 @@ def scrape_book(URL):
         'PAGE NUMBER': page_numbers,
         'QUOTE': quotes
     }
+    print(book_dict1)
 
     return pd.DataFrame(book_dict1)
 
 def test_func():
-    df = scrape_book('https://gemibook.com/241033-foundation')
+    df = scrape_book('https://www.allfreenovel.com/Book/Details/16395/The-Invisible-Life-of-Addie-LaRue')
 
-    df['TIME24'] = pd.to_datetime(df['TIME24'], infer_datetime_format=True).dt.time
+    df['TIME24'] = pd.to_datetime(df['TIME24'], infer_datetime_format=True, errors='coerce').dt.time
     df = df.sort_values(by="TIME24")
     df = df.drop_duplicates(subset=['QUOTE'], keep=False)
     return df
 
-# test_func()
-# .to_csv('test-4.csv', index=None)
+# test_func().to_csv('test-allnovels-1.csv', index=None)
+
 
 # main function that scrapes a number of books
 # opens a csv file containing links to the book urls
 # returns a sorted DataFrame of all found time matches
-def scrape_gemi_main():
-    with open('gemibook_urls.csv') as f:
+def scrape_main():
+    with open('allnovels.csv') as f:
         urls = [line.rstrip() for line in f]
     
     dfs = []
@@ -202,6 +201,6 @@ def scrape_gemi_main():
     dfs['PAGE NUMBER'] = dfs['PAGE NUMBER'].astype(int)
     return dfs
 
-scrape_gemi_main().to_csv('main-test-6.csv', index=None)
+scrape_main().to_csv('allnovels-1.csv', index=None)
 
 

@@ -47,10 +47,24 @@ def get_doc(url):
         # raise Exception('Failed to load page {}'.format(response))
     return doc
 
+
 # helper function that finds all times using regex
 # input: book content to search through
 # output: all matches of the time in an array
-def find_times(content):
+def find_numeric_times(content):
+    # regexp = '(24:00|2[0-3]:[0-5][0-9]|1[0-9]:[0-5][0-9]|[0-9]:[0-5][0-9])'
+    regexp12 = '1[0-9]:[0-5][0-9]\s?[AaPp]\.?[Mm]\.?|[1-9]:[0-5][0-9]\s?[AaPp]\.?[Mm]\.?'
+    regexp24 = '24:00|2[0-3]:[0-5][0-9]|1[0-9]:[0-5][0-9]|[0-9]:[0-5][0-9]'
+    regexp = re.compile(regexp12+'|'+regexp24)
+    result = re.findall(regexp, content)
+    return result
+
+
+# helper function that finds all times using regex
+# input: book content to search through
+# output: all matches of the time in an array
+def find_nonnumeric_times(content):
+
     re_onetonineteen = '(?:[Oo]ne|[Tt]wo|[Tt]hree|[Ff]our|[Ff]ive|[Ss]ix|[Ss]even|[Ee]ight|[Nn]ine|[Tt]en|[Ee]leven|[Tt]welve|[Tt]hirteen|[Ff]ourteen|[Ff]ifteen|[Ss]ixteen|[Ss]eventeen|[Ee]ighteen|[Nn]ineteen)'
     re_first = '(?:[Qq]uarter|[Hh]alf|[Oo]ne|[Tt]wo|[Tt]hree|[Ff]our|[Ff]ive|[Ss]ix|[Ss]even|[Ee]ight|[Nn]ine|[Tt]en|[Ee]leven|[Tt]welve|[Tt]hirteen|[Ff]ourteen|[Ff]ifteen|[Ss]ixteen|[Ss]eventeen|[Ee]ighteen|[Nn]ineteen)'
     re_last = '(?:[Oo]ne|[Tt]wo|[Tt]hree|[Ff]our|[Ff]ive|[Ss]ix|[Ss]even|[Ee]ight|[Nn]ine|[Tt]en|[Ee]leven|[Tt]welve|[Mm]idnight|\s[Nn]oon)'
@@ -241,7 +255,6 @@ def change_format(times):
         elif 'to' in words or 'before' in words:
             hour_plusone = words[len(words)-1]
             hour_plusone_key = get_key(hour_plusone, map_hour)
-            print(hour_plusone_key)
             if hour_plusone_key == -1:
                 print('couldn\'t find ', time, hour_plusone)
                 return
@@ -273,6 +286,7 @@ def scrape_book(URL):
     num_pages = len(urls)
     
     times = []
+    times24 = []
     page_numbers = []
     quotes = []
     for i in range(num_pages):
@@ -288,21 +302,30 @@ def scrape_book(URL):
         texts = content.find_all('p')
         for text in texts:
             text_str = text.text
-            matches = find_times(text_str)
-            if matches:
-                times.extend(matches)
+            numeric_matches = find_numeric_times(text_str)
+            nonnumeric_matches = find_nonnumeric_times(text_str)
+            if numeric_matches:
+                times.extend(numeric_matches)
+                times24.extend(numeric_matches)
                 if len(text_str) > 500:
-                    quotes.extend(handle_long_text(text_str, matches))
+                    quotes.extend(handle_long_text(text_str, numeric_matches))
                 else:
                     quote = text_str
-                    quotes.extend([quote]*len(matches))
+                    quotes.extend([quote]*len(numeric_matches))
+            if nonnumeric_matches:
+                times.extend(nonnumeric_matches)
+                times24.extend(change_format(nonnumeric_matches))
+                if len(text_str) > 500:
+                    quotes.extend(handle_long_text(text_str, nonnumeric_matches))
+                else:
+                    quote = text_str
+                    quotes.extend([quote]*len(nonnumeric_matches))
             
-            page_numbers.extend([i+1]*len(matches))
+            page_numbers.extend([i+1]*(len(numeric_matches)+len(nonnumeric_matches)))
             
 
     titles = [title] * len(times)
     authors = [author] * len(times)
-    times24 = change_format(times)
     book_dict1 = {
         'TIME24': times24,
         'TITLE': titles,
@@ -315,13 +338,13 @@ def scrape_book(URL):
     return pd.DataFrame(book_dict1)
 
 def test_func():
-    df = scrape_book('https://gemibook.com/243019-allegiant')
+    df = scrape_book('https://gemibook.com/2435427-the-martian')
 
     df['TIME24'] = pd.to_datetime(df['TIME24'], infer_datetime_format=True, errors='coerce').dt.time
     df = df.sort_values(by="TIME24")
     return df
 
-test_func().to_csv('allegiant-test-1.csv', index=None)
+test_func().to_csv('gemibooks-1.csv', index=None)
 # .to_csv('test-4.csv', index=None)
 
 # main function that scrapes a number of books
