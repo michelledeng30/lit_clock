@@ -3,11 +3,19 @@ from bs4 import BeautifulSoup
 import csv
 import pandas as pd
 import re
+# import nltk
+# from nltk.tokenize import sent_tokenize
+# nltk.download('punkt')
 
+url = 'https://gemibook.com/'
+response = requests.get(url)
+contents = response.text
 
-# helper function to get info from main book page
-# input: URL for the book page in gemibooks.com
-# output: book title, book author, number of chapters/pages, url to 1st page
+with open('Bookswebpage.html', 'w') as f:
+    f.write(contents)
+
+doc = BeautifulSoup(contents, 'html.parser')
+
 def get_book_info(URL):
     response = requests.get(URL)
     contents = response.text
@@ -31,9 +39,6 @@ def get_book_info(URL):
     
     return title, author, num, url
 
-# helper function that gets the page from url
-# input: page url
-# output: page document
 def get_doc(url):
     response = requests.get(url)
     doc = BeautifulSoup(response.text, 'html.parser')
@@ -41,20 +46,14 @@ def get_doc(url):
         raise Exception('Failed to load page {}'.format(response))
     return doc
 
-# helper function that finds all times using regex
-# input: book content to search through
-# output: all matches of the time in an array
 def find_times(content):
-    # regexp = '(24:00|2[0-3]:[0-5][0-9]|1[0-9]:[0-5][0-9]|[0-9]:[0-5][0-9])'
-    regexp12 = '1[0-9]:[0-5][0-9]\s?[AaPp]\.?[Mm]\.?|[1-9]:[0-5][0-9]\s?[AaPp]\.?[Mm]\.?'
-    regexp24 = '24:00|2[0-3]:[0-5][0-9]|1[0-9]:[0-5][0-9]|[0-9]:[0-5][0-9]'
-    regexp = re.compile(regexp12+'|'+regexp24)
+    # regexp12 = '1[0-9]:[0-5][0-9]\s?[AaPp]\.?[Mm]\.?|[1-9]:[0-5][0-9]\s?[AaPp]\.?[Mm]\.?'
+    # regexp24 = '24:00|2[0-3]:[0-5][0-9]|1[0-9]:[0-5][0-9]|[0-9]:[0-5][0-9]'
+    # regexp = re.compile(regexp12+'|'+regexp24)
+    
     result = re.findall(regexp, content)
     return result
 
-# sub helper function that gets the index of the sentence containing the given time
-# input: sentence array, match (time)
-# output: index of the sentence containing the time, else -1
 def get_sentence_index(sentences, match):
     for i in range(len(sentences)):
         index = sentences[i].find(match)
@@ -62,9 +61,6 @@ def get_sentence_index(sentences, match):
             return i
     return -1
 
-# sub helper function that splits a paragraph into sentences
-# input: paragraph string
-# output: array of sentences
 def split_text(text):
     alphabets= "([A-Za-z])"
     prefixes = "(Mr|St|Mrs|Ms|Dr)[.]"
@@ -97,9 +93,6 @@ def split_text(text):
     sentences = [s.strip() for s in sentences]
     return sentences
 
-# helper function that shortens quotes if the text is too long
-# input: text chunk, array of time matches
-# output: array of shortened quotes with length = len(matches)
 def handle_long_text(text_str, matches):
     quotes = []
     sentences = split_text(text_str)
@@ -112,18 +105,9 @@ def handle_long_text(text_str, matches):
         quotes.append(quote)
     return quotes
 
-
-# main function that scrapes a book for times
-# input: url to main page of book
-# output: DataFrame with times, book info, and quotes
 def scrape_book(URL):
     title, author, pages, url = get_book_info(URL)
-    print(url)
     index = url.find('p-1')
-
-    if index == -1:
-        print('error with ', title)
-        return
     start_url = url[:index]
     book_num = url[index+4:]
     
@@ -165,42 +149,10 @@ def scrape_book(URL):
     return pd.DataFrame(book_dict1)
 
 def test_func():
-    df = scrape_book('https://gemibook.com/231064-the-hobbit')
+    df = scrape_book('https://gemibook.com/2435425-beach-read')
 
     df['TIME24'] = pd.to_datetime(df['TIME24'], infer_datetime_format=True).dt.time
     df = df.sort_values(by="TIME24")
     return df
 
-test_func()
-# .to_csv('test-4.csv', index=None)
-
-
-# main function that scrapes a number of books
-# opens a csv file containing links to the book urls
-# returns a sorted DataFrame of all found time matches
-def scrape_main():
-    with open('gemibook_urls.csv') as f:
-        urls = [line.rstrip() for line in f]
-    
-    dfs = []
-
-    for url in urls:
-        if url:
-            df = scrape_book(url)
-            dfs.append(df)
-        else:
-            print('error at url ', url)
-
-    dfs = pd.concat(dfs)
-
-    dfs['TIME24'] = pd.to_datetime(dfs['TIME24'], infer_datetime_format=True).dt.time
-    dfs = dfs.sort_values(by="TIME24")
-    dfs = dfs.drop_duplicates(subset=['QUOTE'], keep=False)
-    dfs['PAGE NUMBER'] = dfs['PAGE NUMBER'].astype(int)
-    return dfs
-
-# scrape_main().to_csv('main-test-5.csv', index=None)
-
-# scrape_book('https://gemibook.com/2435427-the-martian').to_csv('themartian2.csv', index=None)
-
-
+test_func().to_csv('test-time-1.csv', index=None)

@@ -16,4 +16,26 @@ regexp24 = '24:00|2[0-3]:[0-5][0-9]|1[0-9]:[0-5][0-9]|[0-9]:[0-5][0-9]'
 regexp = re.compile(regexp12+'|'+regexp24)
 # regexp = re.compile('(1[012]:[0-5][0-9])\s?')
 result = re.findall(regexp, text)
-print(result)
+
+
+text = """
+twenty-three minutes past ten blah
+twenty-three minutes after ten blah
+half past six blah
+quarter-past six blah
+four minutes to seven yeah
+four minutes before seven yeah
+midnight yeah
+noon.
+quarter past midnight.
+12 o'clock eight o'clock one o'clock 4 o'clock
+"""
+
+# 13
+
+regexp = '[a-zA-Z0-9]+\so\'clock'
+regexp = '(?:one|two|three|four|five|six|seven|eight|nine|ten)'
+
+result = re.findall(regexp, text)
+print(result, len(result))
+

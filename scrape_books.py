@@ -119,3 +119,15 @@ def get_books(doc):
         'URL': Book_urls
     }
     return pd.DataFrame(book_dict1)
+
+
+# open main gemibook page
+
+url = 'https://gemibook.com/'
+response = requests.get(url)
+contents = response.text
+
+with open('Bookswebpage.html', 'w') as f:
+    f.write(contents)
+
+doc = BeautifulSoup(contents, 'html.parser')
